@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>MeshOS Member Counter</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      background:
+        radial-gradient(circle at top, #5865f2 0%, #1e1f22 45%, #111214 100%);
+
+      font-family: Arial, Helvetica, sans-serif;
+      color: white;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px);
+
+      border: 1px solid rgba(255,255,255,0.1);
+
+      border-radius: 28px;
+
+      padding: 48px 72px;
+
+      text-align: center;
+
+      box-shadow:
+        0 10px 40px rgba(0,0,0,0.45),
+        inset 0 0 40px rgba(255,255,255,0.02);
+    }
+
+    .label {
+      font-size: 20px;
+      letter-spacing: 4px;
+      opacity: 0.7;
+      margin-bottom: 18px;
+    }
+
+    .count {
+      font-size: clamp(64px, 10vw, 140px);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .online {
+      margin-top: 18px;
+      font-size: 18px;
+      opacity: 0.8;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      background: #57f287;
+      border-radius: 50%;
+      margin-right: 8px;
+
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.4);
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .footer {
+      margin-top: 20px;
+      font-size: 13px;
+      opacity: 0.45;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <div class="label">DISCORD MEMBERS</div>
+
+    <div class="count" id="memberCount">
+      ---
+    </div>
+
+    <div class="online">
+      <span class="pulse"></span>
+      <span id="onlineCount">---</span> online
+    </div>
+
+    <div class="footer">
+      Auto-updating every 15 seconds
+    </div>
+  </div>
+
+  <script>
+    // =========================================
+    // REPLACE THIS WITH YOUR DISCORD INVITE CODE
+    // Example:
+    // discord.gg/example
+    // becomes:
+    // example
+    // =========================================
+
+    const inviteCode = "QCgdTmuWUA";
+
+    // =========================================
+
+    const memberEl = document.getElementById("memberCount");
+    const onlineEl = document.getElementById("onlineCount");
+
+    async function updateDiscordStats() {
+      try {
+        const response = await fetch(
+          `https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`
+        );
+
+        if (!response.ok) {
+          throw new Error("Invalid invite or API issue");
+        }
+
+        const data = await response.json();
+
+        animateNumber(
+          memberEl,
+          parseInt(memberEl.dataset.value || 0),
+          data.approximate_member_count
+        );
+
+        animateNumber(
+          onlineEl,
+          parseInt(onlineEl.dataset.value || 0),
+          data.approximate_presence_count
+        );
+
+      } catch (err) {
+        console.error(err);
+
+        memberEl.textContent = "ERROR";
+        onlineEl.textContent = "ERROR";
+      }
+    }
+
+    function animateNumber(element, start, end) {
+      const duration = 700;
+      const startTime = performance.now();
+
+      element.dataset.value = end;
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+
+        const progress = Math.min(elapsed / duration, 1);
+
+        const value = Math.floor(
+          start + (end - start) * progress
+        );
+
+        element.textContent = value.toLocaleString();
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    updateDiscordStats();
+
+    setInterval(updateDiscordStats, 15000);
+  </script>
+
+</body>
+</html>_import/*
