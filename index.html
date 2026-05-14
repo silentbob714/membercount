@@ -6,8 +6,8 @@
 
 <title>Discord Analytics Dashboard</title>
 
-<!-- safer CDN (avoids tracking prevention issues) -->
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- ✅ SKYPACK (cleanest for Edge tracking prevention issues) -->
+<script src="https://cdn.skypack.dev/@supabase/supabase-js@2"></script>
 
 <style>
 
@@ -18,25 +18,13 @@ body{
   color:white;
 }
 
-/* background glow */
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(88,101,242,0.25), transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(0,200,255,0.15), transparent 45%);
-  pointer-events:none;
-}
-
-/* layout */
 .container{
   max-width:1100px;
   margin:auto;
   padding:30px;
 }
 
-/* hero */
+/* HERO */
 .hero{
   display:flex;
   align-items:center;
@@ -51,6 +39,7 @@ body::before{
   width:70px;
   height:70px;
   border-radius:14px;
+  object-fit:cover;
 }
 
 .hero h1{
@@ -58,15 +47,7 @@ body::before{
   font-size:24px;
 }
 
-/* debug */
-#debug{
-  margin-top:10px;
-  font-size:12px;
-  color:#ff6b6b;
-  white-space:pre-wrap;
-}
-
-/* grid */
+/* GRID */
 .grid{
   margin-top:20px;
   display:grid;
@@ -92,7 +73,7 @@ body::before{
   font-weight:700;
 }
 
-/* chart */
+/* CHART */
 .chart{
   margin-top:20px;
   background:#141826;
@@ -104,6 +85,7 @@ body::before{
 canvas{
   width:100%;
   height:300px;
+  display:block;
 }
 
 </style>
@@ -119,8 +101,6 @@ canvas{
       <h1 id="serverName">Loading...</h1>
     </div>
   </div>
-
-  <div id="debug"></div>
 
   <div class="grid">
     <div class="card">
@@ -148,6 +128,7 @@ canvas{
 <script>
 
 (() => {
+
 /* =========================
    CONFIG
 ========================= */
@@ -156,7 +137,7 @@ const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
 
 /* =========================
-   SAFE INIT (FIXES DUP DECLARE BUG)
+   SAFE INIT (NO GLOBAL COLLISIONS)
 ========================= */
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -174,15 +155,6 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 let cache = [];
 
 /* =========================
-   DEBUG
-========================= */
-
-function debug(msg){
-  console.log(msg);
-  document.getElementById("debug").innerText = msg;
-}
-
-/* =========================
    BOOT
 ========================= */
 
@@ -193,7 +165,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 
 /* =========================
-   GUILD
+   GUILD INFO
 ========================= */
 
 async function loadGuild(){
@@ -204,25 +176,21 @@ async function loadGuild(){
     .limit(1);
 
   if(error){
-    debug("Guild error: " + error.message);
+    console.error("Guild error:", error);
     return;
   }
 
-  if(!data?.length){
-    debug("No guild data found (check RLS)");
-    return;
-  }
+  if(!data?.length) return;
 
   const g = data[0];
 
-  document.getElementById("serverName").innerText = g.name || "Unknown";
+  document.getElementById("serverName").innerText =
+    g.name || "Unknown Server";
 
   if(g.icon && g.id){
     document.getElementById("serverIcon").src =
-      `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png`;
+      `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128`;
   }
-
-  debug("Guild loaded ✔");
 }
 
 /* =========================
@@ -237,12 +205,11 @@ async function loadSnapshots(){
     .order("created_at", { ascending:true });
 
   if(error){
-    debug("Snapshot error: " + error.message);
+    console.error("Snapshot error:", error);
     return;
   }
 
   if(!data?.length){
-    debug("No snapshot data found (check inserts or RLS)");
     setValues(0,0,0);
     return;
   }
@@ -257,12 +224,10 @@ async function loadSnapshots(){
 
   setValues(members, online, peak);
   draw(data);
-
-  debug("Snapshots loaded ✔ rows: " + data.length);
 }
 
 /* =========================
-   UI
+   UI UPDATES
 ========================= */
 
 function setValues(m,o,p){
@@ -271,7 +236,7 @@ function setValues(m,o,p){
   animate("peak", p);
 }
 
-/* animation */
+/* ANIMATION */
 function animate(id, target){
 
   const el = document.getElementById(id);
@@ -289,7 +254,10 @@ function animate(id, target){
   requestAnimationFrame(step);
 }
 
-/* chart */
+/* =========================
+   CHART
+========================= */
+
 function draw(data){
 
   const canvas = document.getElementById("chart");
@@ -302,10 +270,10 @@ function draw(data){
 
   if(data.length < 2) return;
 
-  const vals = data.map(d => d.members || 0);
+  const values = data.map(d => d.members || 0);
 
-  const max = Math.max(...vals);
-  const min = Math.min(...vals);
+  const max = Math.max(...values);
+  const min = Math.min(...values);
 
   ctx.beginPath();
 
@@ -323,7 +291,7 @@ function draw(data){
   ctx.stroke();
 }
 
-})(); // <- prevents global scope collisions
+})(); // isolate scope (prevents redeclare bugs)
 
 </script>
 
