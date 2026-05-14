@@ -26,7 +26,6 @@ body{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:16px;
   padding:18px;
   border-radius:14px;
   background:#141826;
@@ -51,27 +50,13 @@ body{
   font-size:24px;
 }
 
-.live{
+.badge{
   font-size:12px;
   opacity:0.7;
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-
-.dot{
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:#3cff75;
-  box-shadow:0 0 10px #3cff75;
-  animation:pulse 1.5s infinite;
-}
-
-@keyframes pulse{
-  0%{transform:scale(1);opacity:1;}
-  50%{transform:scale(1.4);opacity:0.5;}
-  100%{transform:scale(1);opacity:1;}
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(88,101,242,0.15);
+  border:1px solid rgba(88,101,242,0.3);
 }
 
 /* GRID */
@@ -87,8 +72,6 @@ body{
   padding:16px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,0.05);
-  position:relative;
-  overflow:hidden;
 }
 
 .card-title{
@@ -104,19 +87,8 @@ body{
 
 .delta{
   font-size:12px;
-  opacity:0.7;
+  opacity:0.75;
   margin-top:6px;
-}
-
-/* FLASH ON UPDATE */
-.flash{
-  animation:flash 0.6s ease;
-}
-
-@keyframes flash{
-  0%{box-shadow:0 0 0 rgba(88,101,242,0);}
-  50%{box-shadow:0 0 25px rgba(88,101,242,0.6);}
-  100%{box-shadow:0 0 0 rgba(88,101,242,0);}
 }
 
 /* CHART */
@@ -124,14 +96,14 @@ body{
   margin-top:20px;
   background:#141826;
   border-radius:12px;
-  padding:12px;
+  padding:16px;
   border:1px solid rgba(255,255,255,0.05);
   position:relative;
 }
 
 canvas{
   width:100%;
-  height:320px;
+  height:340px;
   display:block;
 }
 
@@ -142,28 +114,27 @@ canvas{
 
 <div class="container">
 
+  <!-- HERO -->
   <div class="hero">
     <div class="hero-left">
       <img id="serverIcon" />
-      <div>
-        <h1 id="serverName">Loading...</h1>
-      </div>
+      <h1 id="serverName">Loading...</h1>
     </div>
 
-    <div class="live">
-      <div class="dot"></div>
-      LIVE FEED
+    <div class="badge">
+      Near Realtime Feed
     </div>
   </div>
 
+  <!-- GRID -->
   <div class="grid">
-    <div class="card" id="card-members">
+    <div class="card">
       <div class="card-title">Members</div>
       <div class="card-value" id="members">-</div>
       <div class="delta" id="members_delta"></div>
     </div>
 
-    <div class="card" id="card-online">
+    <div class="card">
       <div class="card-title">Online</div>
       <div class="card-value" id="online">-</div>
       <div class="delta" id="online_delta"></div>
@@ -173,13 +144,9 @@ canvas{
       <div class="card-title">Peak</div>
       <div class="card-value" id="peak">-</div>
     </div>
-
-    <div class="card">
-      <div class="card-title">Velocity</div>
-      <div class="card-value" id="velocity">-</div>
-    </div>
   </div>
 
+  <!-- CHART -->
   <div class="chart">
     <canvas id="chart"></canvas>
   </div>
@@ -191,10 +158,10 @@ canvas{
 
 import { createClient } from "https://cdn.skypack.dev/@supabase/supabase-js@2";
 
-const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
-const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
-
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = createClient(
+  "https://xyskshqnljcazroqtlnr.supabase.co",
+  "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES"
+);
 
 let cache = [];
 
@@ -204,12 +171,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   setInterval(loadSnapshots, 8000);
 });
 
-/* GUILD */
+/* =========================
+   GUILD
+========================= */
 async function loadGuild(){
   const { data } = await sb.from("discord_guild").select("*").limit(1);
   if(!data?.length) return;
 
   const g = data[0];
+
   document.getElementById("serverName").innerText = g.name;
 
   if(g.icon){
@@ -218,7 +188,9 @@ async function loadGuild(){
   }
 }
 
-/* SNAPSHOTS */
+/* =========================
+   SNAPSHOTS
+========================= */
 async function loadSnapshots(){
 
   const { data } = await sb
@@ -236,7 +208,9 @@ async function loadSnapshots(){
   render(current, previous, cache);
 }
 
-/* RENDER ENGINE */
+/* =========================
+   RENDER ENGINE
+========================= */
 function render(current, previous, all){
 
   const membersNow = current.members || 0;
@@ -248,25 +222,20 @@ function render(current, previous, all){
   const memberDelta = membersNow - membersPrev;
   const onlineDelta = onlineNow - onlinePrev;
 
-  const peak = Math.max(...all.map(d => d.members || 0));
-
-  const velocity = memberDelta; // per interval estimate
-
   animate("members", membersNow);
   animate("online", onlineNow);
-  animate("peak", peak);
-  animate("velocity", velocity);
+
+  animate("peak", Math.max(...all.map(d => d.members || 0)));
 
   showDelta("members", memberDelta);
   showDelta("online", onlineDelta);
 
-  pulse("card-members");
-  pulse("card-online");
-
   draw(all);
 }
 
-/* ANIMATE */
+/* =========================
+   ANIMATION
+========================= */
 function animate(id, target){
 
   const el = document.getElementById(id);
@@ -276,7 +245,7 @@ function animate(id, target){
   const t0 = performance.now();
 
   function step(t){
-    const p = Math.min((t - t0) / 500, 1);
+    const p = Math.min((t - t0) / 450, 1);
     el.innerText = Math.floor(start + diff * p).toLocaleString();
     if(p < 1) requestAnimationFrame(step);
   }
@@ -284,58 +253,67 @@ function animate(id, target){
   requestAnimationFrame(step);
 }
 
-/* DELTA */
+/* =========================
+   DELTAS (UPDATED TEXT)
+========================= */
 function showDelta(id, delta){
 
   const el = document.getElementById(id + "_delta");
 
   if(delta > 0){
-    el.innerText = `▲ +${delta}`;
+    el.innerText = `since last update +${delta}`;
     el.style.color = "#3cff75";
-  } else if(delta < 0){
-    el.innerText = `▼ ${delta}`;
+  }
+  else if(delta < 0){
+    el.innerText = `since last update ${delta}`;
     el.style.color = "#ff5c5c";
-  } else {
-    el.innerText = "no change";
+  }
+  else{
+    el.innerText = "since last update no change";
     el.style.color = "#aaa";
   }
 }
 
-/* FLASH EFFECT */
-function pulse(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-
-  el.classList.remove("flash");
-  void el.offsetWidth;
-  el.classList.add("flash");
-}
-
-/* CHART + AXIS GRID */
+/* =========================
+   CHART (WITH AXIS + LABELS)
+========================= */
 function draw(data){
 
   const canvas = document.getElementById("chart");
   const ctx = canvas.getContext("2d");
 
   canvas.width = canvas.offsetWidth;
-  canvas.height = 320;
+  canvas.height = 340;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   const values = data.map(d => d.members || 0);
+
   const max = Math.max(...values);
   const min = Math.min(...values);
 
-  /* GRID (Y AXIS LINES) */
-  ctx.strokeStyle = "rgba(255,255,255,0.06)";
-  ctx.lineWidth = 1;
+  const paddingLeft = 50;
+  const paddingBottom = 25;
 
-  for(let i=0;i<5;i++){
-    const y = (canvas.height/5)*i;
+  const w = canvas.width - paddingLeft;
+  const h = canvas.height - paddingBottom;
+
+  /* GRID + Y AXIS LABELS */
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.font = "10px Arial";
+
+  for(let i=0;i<=5;i++){
+
+    const y = (h/5)*i;
+    const value = Math.round(max - ((max-min)/5)*i);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.beginPath();
-    ctx.moveTo(0,y);
-    ctx.lineTo(canvas.width,y);
+    ctx.moveTo(paddingLeft, y);
+    ctx.lineTo(canvas.width, y);
     ctx.stroke();
+
+    ctx.fillText(value.toLocaleString(), 5, y + 3);
   }
 
   /* LINE */
@@ -343,11 +321,11 @@ function draw(data){
 
   data.forEach((d,i)=>{
 
-    const x = (i/(data.length-1))*canvas.width;
+    const x = paddingLeft + (i/(data.length-1))*w;
 
     const y =
-      canvas.height -
-      ((d.members-min)/((max-min)||1))*canvas.height;
+      h -
+      ((d.members-min)/((max-min)||1))*h;
 
     if(i===0) ctx.moveTo(x,y);
     else ctx.lineTo(x,y);
@@ -355,9 +333,24 @@ function draw(data){
 
   ctx.strokeStyle = "#5865f2";
   ctx.lineWidth = 2;
-  ctx.shadowColor = "#5865f2";
-  ctx.shadowBlur = 12;
   ctx.stroke();
+
+  /* X AXIS TIME LABELS */
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.font = "10px Arial";
+
+  const step = Math.max(1, Math.floor(data.length / 5));
+
+  data.forEach((d,i)=>{
+
+    if(i % step === 0){
+
+      const x = paddingLeft + (i/(data.length-1))*w;
+      const time = new Date(d.created_at).toLocaleTimeString();
+
+      ctx.fillText(time, x - 20, canvas.height - 5);
+    }
+  });
 }
 
 </script>
