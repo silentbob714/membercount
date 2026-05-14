@@ -123,7 +123,7 @@ canvas{
 </div>
 
 <!-- =========================
-     SUPABASE (SKYPACK MODULE)
+     SUPABASE
 ========================= -->
 <script type="module">
 
@@ -133,7 +133,6 @@ import { createClient } from "https://cdn.skypack.dev/@supabase/supabase-js@2";
 const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
 
-/* CLIENT */
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: false,
@@ -144,12 +143,14 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 /* STATE */
 let cache = [];
+let current = null;
+let previous = null;
 
-/* BOOT */
+/* BOOT (STEP 5: faster “live feel”) */
 window.addEventListener("DOMContentLoaded", async () => {
   await loadGuild();
   await loadSnapshots();
-  setInterval(loadSnapshots, 10000);
+  setInterval(loadSnapshots, 8000);
 });
 
 /* =========================
@@ -157,15 +158,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 ========================= */
 async function loadGuild(){
 
-  const { data, error } = await sb
+  const { data } = await sb
     .from("discord_guild")
     .select("*")
     .limit(1);
-
-  if(error){
-    console.error("Guild error:", error);
-    return;
-  }
 
   if(!data?.length) return;
 
@@ -190,38 +186,46 @@ async function loadSnapshots(){
     .select("*")
     .order("created_at", { ascending:true });
 
-  if(error){
-    console.error("Snapshot error:", error);
-    return;
-  }
-
-  if(!data?.length){
-    setValues(0,0,0);
-    return;
-  }
+  if(error || !data?.length) return;
 
   cache = data;
 
-  const latest = data[data.length - 1];
+  current = data[data.length - 1];
+  previous = data[data.length - 2] || current;
 
-  const members = latest.members || 0;
-  const online = latest.online || 0;
-  const peak = Math.max(...data.map(d => d.members || 0));
-
-  setValues(members, online, peak);
-  draw(data);
+  render(current, previous, cache);
 }
 
 /* =========================
-   UI
+   STEP 3: RENDER ENGINE
 ========================= */
-function setValues(m,o,p){
-  animate("members", m);
-  animate("online", o);
-  animate("peak", p);
+function render(current, previous, all){
+
+  const membersNow = current.members || 0;
+  const membersPrev = previous.members || 0;
+
+  const onlineNow = current.online || 0;
+  const onlinePrev = previous.online || 0;
+
+  const memberDelta = membersNow - membersPrev;
+  const onlineDelta = onlineNow - onlinePrev;
+
+  animate("members", membersNow);
+  animate("online", onlineNow);
+
+  const peak = Math.max(...all.map(d => d.members || 0));
+  animate("peak", peak);
+
+  draw(all);
+
+  // STEP 4: delta display
+  showDelta("members", memberDelta);
+  showDelta("online", onlineDelta);
 }
 
-/* NUMBER ANIMATION */
+/* =========================
+   ANIMATION
+========================= */
 function animate(id, target){
 
   const el = document.getElementById(id);
@@ -237,6 +241,33 @@ function animate(id, target){
   }
 
   requestAnimationFrame(step);
+}
+
+/* =========================
+   STEP 4: DELTA UI
+========================= */
+function showDelta(id, delta){
+
+  let el = document.getElementById(id + "_delta");
+
+  if(!el){
+    el = document.createElement("div");
+    el.id = id + "_delta";
+    el.style.fontSize = "12px";
+    el.style.opacity = "0.7";
+    document.getElementById(id).parentNode.appendChild(el);
+  }
+
+  if(delta > 0){
+    el.innerText = `+${delta} since last update`;
+    el.style.color = "#3cff75";
+  } else if(delta < 0){
+    el.innerText = `${delta} since last update`;
+    el.style.color = "#ff5c5c";
+  } else {
+    el.innerText = "no change";
+    el.style.color = "#aaa";
+  }
 }
 
 /* =========================
