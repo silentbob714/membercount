@@ -100,7 +100,7 @@ const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
 
 async function load() {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/discord_snapshots?select=*`,
+    `${SUPABASE_URL}/rest/v1/discord_snapshots?select=*&order=created_at.asc`,
     {
       headers: {
         apikey: SUPABASE_KEY,
@@ -109,16 +109,24 @@ async function load() {
     }
   );
 
-  const data = await res.json();
+  const text = await res.text();
 
-  const members = data[data.length - 1].members;
-  const online = data[data.length - 1].online;
+  console.log("RAW RESPONSE:", text);
+
+  const data = JSON.parse(text);
+
+  if (!data || !data.length) {
+    document.getElementById("members").innerText = "No data yet";
+    return;
+  }
+
+  const latest = data[data.length - 1];
 
   document.getElementById("members").innerText =
-    members.toLocaleString();
+    latest.members.toLocaleString();
 
   document.getElementById("online").innerText =
-    online.toLocaleString();
+    latest.online.toLocaleString();
 
   const peak = Math.max(...data.map(d => d.members));
   document.getElementById("peak").innerText =
