@@ -2,7 +2,7 @@ name: Discord Snapshot Collector
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 mins
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -11,42 +11,71 @@ jobs:
 
     steps:
       - name: Install jq
-        run: sudo apt-get install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Fetch Discord Data
         run: |
 
           echo "Fetching Discord invite..."
 
+          # Clean invite (removes spaces/newlines)
+          INVITE=$(echo "${INVITE}" | tr -d ' \n')
+
+          echo "Invite code: [$INVITE]"
+
           curl -s \
             "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" \
             > data.json
 
+          echo "Raw Discord response:"
           cat data.json
 
+          # Validate JSON (prevents silent failures)
+          if ! jq . data.json >/dev/null 2>&1; then
+            echo "❌ Invalid JSON response from Discord API"
+            exit 1
+          fi
+
+          # Safe extraction with fallbacks
           MEMBERS=$(jq '.approximate_member_count // 0' data.json)
           ONLINE=$(jq '.approximate_presence_count // 0' data.json)
 
-          GUILD_ID_API=$(jq -r '.guild.id' data.json)
-          GUILD_NAME=$(jq -r '.guild.name' data.json)
-          GUILD_ICON=$(jq -r '.guild.icon' data.json)
+          GUILD_ID_API=$(jq -r '.guild.id // empty' data.json)
+          GUILD_NAME=$(jq -r '.guild.name // "Unknown Server"' data.json)
+          GUILD_ICON=$(jq -r '.guild.icon // ""' data.json)
 
           echo "Members: $MEMBERS"
           echo "Online: $ONLINE"
+          echo "Guild ID: $GUILD_ID_API"
+          echo "Guild Name: $GUILD_NAME"
 
-          echo "Updating guild info..."
+          # -------------------------
+          # UPDATE GUILD TABLE
+          # -------------------------
 
-          curl -X POST \
-            "${SUPABASE_URL}/rest/v1/discord_guild" \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: resolution=merge-duplicates" \
-            -d "{
-              \"id\": \"${GUILD_ID_API}\",
-              \"name\": \"${GUILD_NAME}\",
-              \"icon\": \"${GUILD_ICON}\"
-            }"
+          if [ -n "$GUILD_ID_API" ]; then
+
+            echo "Updating guild info..."
+
+            curl -X POST \
+              "${SUPABASE_URL}/rest/v1/discord_guild" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: resolution=merge-duplicates" \
+              -d "{
+                \"id\": \"${GUILD_ID_API}\",
+                \"name\": \"${GUILD_NAME}\",
+                \"icon\": \"${GUILD_ICON}\"
+              }"
+
+          else
+            echo "⚠️ Guild ID missing — skipping guild insert"
+          fi
+
+          # -------------------------
+          # INSERT SNAPSHOT
+          # -------------------------
 
           echo "Inserting snapshot..."
 
@@ -57,8 +86,8 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"guild_id\": \"${GUILD_ID_API}\",
-              \"members\": $MEMBERS,
-              \"online\": $ONLINE
+              \"members\": ${MEMBERS},
+              \"online\": ${ONLINE}
             }"
 
     env:
