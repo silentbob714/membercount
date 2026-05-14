@@ -441,42 +441,6 @@ async function loadSnapshots() {
 }
 
 /* =========================
-   REALTIME
-========================= */
-
-function startRealtime(){
-
-  supabase
-    .channel("discord-live")
-    .on(
-      "postgres_changes",
-      {
-        event:"INSERT",
-        schema:"public",
-        table:"discord_snapshots"
-      },
-      (payload) => {
-
-        lastRealtimeUpdate = Date.now();
-        liveState = "LIVE";
-
-        const newRow = payload.new;
-
-        snapshotCache.push(newRow);
-
-        if(snapshotCache.length > 500){
-          snapshotCache.shift();
-        }
-
-        updateUI(snapshotCache, newRow);
-
-      }
-    )
-    .subscribe();
-
-}
-
-/* =========================
    LIVE STATUS
 ========================= */
 
@@ -689,9 +653,12 @@ async function boot(){
 
   await loadSnapshots();
 
-  startRealtime();
-
   updateLiveStatus();
+
+  // refresh snapshots every 10 seconds
+  setInterval(async () => {
+    await loadSnapshots();
+  }, 10000);
 
 }
 
