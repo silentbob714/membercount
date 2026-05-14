@@ -1,167 +1,701 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MeshOS Discord Analytics</title>
+
+<title>Discord Analytics Dashboard</title>
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+/>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body {
-  margin: 0;
-  font-family: Arial;
-  background: #0f1115;
-  color: white;
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+
+*{
+  box-sizing:border-box;
 }
 
-.container {
-  width: 100%;
-  max-width: 1000px;
+body{
+  margin:0;
+  font-family:Inter,Arial,sans-serif;
+  background:#0b0d12;
+  color:white;
+  overflow-x:hidden;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+.background-glow{
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle at top left,#5865f230,transparent 30%),
+    radial-gradient(circle at bottom right,#00d4ff20,transparent 30%);
+  pointer-events:none;
+  z-index:0;
 }
 
-.icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
+.container{
+  position:relative;
+  z-index:1;
+  width:100%;
+  max-width:1400px;
+  margin:auto;
+  padding:40px 24px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-top: 30px;
+/* HEADER */
+
+.hero{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg,#1a1d27,#11141b);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:28px;
+  padding:30px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
-.card {
-  background: #1b1d23;
-  padding: 20px;
-  border-radius: 12px;
+.hero-left{
+  display:flex;
+  align-items:center;
+  gap:22px;
 }
 
-.value {
-  font-size: 32px;
-  margin-top: 10px;
+.server-icon{
+  width:100px;
+  height:100px;
+  border-radius:24px;
+  object-fit:cover;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.45);
+  border:2px solid rgba(255,255,255,0.08);
 }
 
-canvas {
-  width: 100%;
-  margin-top: 30px;
-  background: #1b1d23;
-  border-radius: 12px;
+.hero-text h1{
+  margin:0;
+  font-size:38px;
+  font-weight:800;
+  letter-spacing:-1px;
 }
+
+.hero-text p{
+  margin-top:10px;
+  opacity:0.75;
+  font-size:15px;
+}
+
+.live-status{
+  margin-top:14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  opacity:0.85;
+}
+
+.live-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#3cff75;
+  box-shadow:0 0 14px #3cff75;
+  animation:pulse 1.5s infinite;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1);opacity:1;}
+  50%{transform:scale(1.4);opacity:0.5;}
+  100%{transform:scale(1);opacity:1;}
+}
+
+/* GRID */
+
+.grid{
+  margin-top:28px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+}
+
+.card{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(180deg,#171a22,#10131a);
+  border:1px solid rgba(255,255,255,0.04);
+  border-radius:22px;
+  padding:24px;
+  box-shadow:
+    0 15px 35px rgba(0,0,0,0.35);
+}
+
+.card::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:-100%;
+  width:100%;
+  height:2px;
+  background:#5865f2;
+  animation:sweep 4s linear infinite;
+  opacity:0.5;
+}
+
+@keyframes sweep{
+  from{left:-100%;}
+  to{left:100%;}
+}
+
+.card-title{
+  font-size:14px;
+  opacity:0.7;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+
+.card-value{
+  margin-top:14px;
+  font-size:44px;
+  font-weight:800;
+  letter-spacing:-2px;
+}
+
+.card-sub{
+  margin-top:8px;
+  font-size:13px;
+  opacity:0.6;
+}
+
+/* CHART */
+
+.chart-wrap{
+  margin-top:28px;
+  background:linear-gradient(180deg,#171a22,#10131a);
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,0.04);
+  padding:20px;
+  box-shadow:
+    0 15px 35px rgba(0,0,0,0.35);
+}
+
+.chart-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+
+.chart-header h2{
+  margin:0;
+  font-size:20px;
+}
+
+.chart-header span{
+  opacity:0.65;
+  font-size:13px;
+}
+
+canvas{
+  width:100%;
+  height:350px;
+  display:block;
+}
+
+/* FOOTER */
+
+.footer{
+  margin-top:20px;
+  opacity:0.45;
+  font-size:12px;
+  text-align:center;
+}
+
+.fade-in{
+  animation:fadeIn .6s ease;
+}
+
+@keyframes fadeIn{
+  from{
+    opacity:0;
+    transform:translateY(10px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+
 </style>
 </head>
 
 <body>
 
+<div class="background-glow"></div>
+
 <div class="container">
 
-  <div class="header">
-    <img id="icon" class="icon"/>
-    <div>
-      <h1 id="name">Loading...</h1>
-      <p id="desc">MeshOS Discord Semi-Live User Count Updates</p>
+  <!-- HERO -->
+
+  <div class="hero fade-in">
+
+    <div class="hero-left">
+
+      <img
+        id="serverIcon"
+        class="server-icon"
+        src=""
+      />
+
+      <div class="hero-text">
+        <h1 id="serverName">Loading...</h1>
+
+        <p>
+          Semi-live Discord analytics dashboard powered by Supabase Realtime
+        </p>
+
+        <div class="live-status">
+          <div class="live-dot"></div>
+          <span id="liveText">Connecting...</span>
+        </div>
+      </div>
+
     </div>
+
   </div>
 
-  <div class="grid">
+  <!-- CARDS -->
+
+  <div class="grid fade-in">
+
     <div class="card">
-      <div>Total Members</div>
-      <div class="value" id="members">-</div>
+      <div class="card-title">
+        Total Members
+      </div>
+
+      <div class="card-value" id="members">
+        -
+      </div>
+
+      <div class="card-sub">
+        Server population
+      </div>
     </div>
 
     <div class="card">
-      <div>Online</div>
-      <div class="value" id="online">-</div>
+      <div class="card-title">
+        Approx Online
+      </div>
+
+      <div class="card-value" id="online">
+        -
+      </div>
+
+      <div class="card-sub">
+        Discord invite estimate
+      </div>
     </div>
 
     <div class="card">
-      <div>Peak</div>
-      <div class="value" id="peak">-</div>
+      <div class="card-title">
+        Peak Members
+      </div>
+
+      <div class="card-value" id="peak">
+        -
+      </div>
+
+      <div class="card-sub">
+        Historical maximum
+      </div>
     </div>
+
   </div>
 
-  <canvas id="chart" height="250"></canvas>
+  <!-- CHART -->
+
+  <div class="chart-wrap fade-in">
+
+    <div class="chart-header">
+      <h2>Growth/Decline Timeline</h2>
+      <span>Near Realtime Snapshot Streaming</span>
+    </div>
+
+    <canvas id="chart"></canvas>
+
+  </div>
+
+  <div class="footer">
+    MeshOS Analytics • Powered by Discord + Supabase
+  </div>
 
 </div>
 
 <script>
 
-const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
-const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
+/* =========================
+   CONFIG
+========================= */
 
-async function load() {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/discord_snapshots?select=*&order=created_at.asc`,
-    {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`
-      }
-    }
+const SUPABASE_URL =
+  "https://YOURPROJECT.supabase.co";
+
+const SUPABASE_KEY =
+  "YOUR_PUBLIC_ANON_KEY";
+
+/* =========================
+   SUPABASE
+========================= */
+
+const supabase =
+  window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
   );
 
-  const text = await res.text();
+/* =========================
+   STATE
+========================= */
 
-  console.log("RAW RESPONSE:", text);
+let snapshotCache = [];
+let lastRealtimeUpdate = Date.now();
+let liveState = "LIVE";
 
-  const data = JSON.parse(text);
+/* =========================
+   GUILD INFO
+========================= */
 
-  if (!data || !data.length) {
-    document.getElementById("members").innerText = "No data yet";
-    return;
+async function loadGuildInfo() {
+
+  try {
+
+    const { data, error } =
+      await supabase
+        .from("discord_guild")
+        .select("*")
+        .limit(1);
+
+    if(error) {
+      console.error(error);
+      return;
+    }
+
+    if(!data.length) return;
+
+    const guild = data[0];
+
+    document.getElementById("serverName")
+      .innerText = guild.name;
+
+    if(guild.icon){
+
+      document.getElementById("serverIcon").src =
+        `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256`;
+    }
+
+  } catch(err){
+    console.error(err);
+  }
+}
+
+/* =========================
+   INITIAL LOAD
+========================= */
+
+async function loadSnapshots() {
+
+  try {
+
+    const { data, error } =
+      await supabase
+        .from("discord_snapshots")
+        .select("*")
+        .order("created_at", {
+          ascending:true
+        });
+
+    if(error){
+      console.error(error);
+      return;
+    }
+
+    snapshotCache = data || [];
+
+    if(!snapshotCache.length) return;
+
+    const latest =
+      snapshotCache[snapshotCache.length - 1];
+
+    updateUI(snapshotCache, latest);
+
+  } catch(err){
+    console.error(err);
+  }
+}
+
+/* =========================
+   REALTIME
+========================= */
+
+function startRealtime(){
+
+  supabase
+    .channel("discord-live")
+    .on(
+      "postgres_changes",
+      {
+        event:"INSERT",
+        schema:"public",
+        table:"discord_snapshots"
+      },
+      (payload) => {
+
+        lastRealtimeUpdate = Date.now();
+        liveState = "LIVE";
+
+        const newRow = payload.new;
+
+        snapshotCache.push(newRow);
+
+        if(snapshotCache.length > 500){
+          snapshotCache.shift();
+        }
+
+        updateUI(snapshotCache, newRow);
+
+      }
+    )
+    .subscribe();
+
+}
+
+/* =========================
+   LIVE STATUS
+========================= */
+
+function updateLiveStatus(){
+
+  const diff =
+    Date.now() - lastRealtimeUpdate;
+
+  if(diff > 60000){
+    liveState = "DELAYED";
+  }
+  else if(diff > 15000){
+    liveState = "STALE";
+  }
+  else{
+    liveState = "LIVE";
   }
 
-  const latest = data[data.length - 1];
+  const el =
+    document.getElementById("liveText");
 
-  document.getElementById("members").innerText =
-    latest.members.toLocaleString();
+  if(liveState === "LIVE"){
+    el.innerText =
+      "LIVE • streaming updates";
+  }
 
-  document.getElementById("online").innerText =
-    latest.online.toLocaleString();
+  else if(liveState === "STALE"){
+    el.innerText =
+      "STALE • awaiting snapshots";
+  }
 
-  const peak = Math.max(...data.map(d => d.members));
-  document.getElementById("peak").innerText =
-    peak.toLocaleString();
+  else{
+    el.innerText =
+      "DELAYED • no recent updates";
+  }
 
-  draw(data);
 }
 
-function draw(data) {
-  const canvas = document.getElementById("chart");
-  const ctx = canvas.getContext("2d");
+setInterval(updateLiveStatus, 5000);
 
-  canvas.width = 1000;
+/* =========================
+   UI
+========================= */
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+function updateUI(data, latest){
 
-  const max = Math.max(...data.map(d => d.members));
-  const min = Math.min(...data.map(d => d.members));
+  if(!latest) return;
+
+  animateNumber(
+    "members",
+    latest.members || 0
+  );
+
+  animateNumber(
+    "online",
+    latest.online || 0
+  );
+
+  const peak =
+    Math.max(...data.map(
+      d => d.members || 0
+    ));
+
+  animateNumber("peak", peak);
+
+  drawChart(data);
+
+}
+
+/* =========================
+   NUMBER ANIMATION
+========================= */
+
+function animateNumber(id, target){
+
+  const el =
+    document.getElementById(id);
+
+  const start =
+    parseInt(
+      el.innerText.replace(/,/g,"")
+    ) || 0;
+
+  const diff = target - start;
+  const duration = 500;
+
+  const startTime =
+    performance.now();
+
+  function update(now){
+
+    const progress =
+      Math.min(
+        (now - startTime) / duration,
+        1
+      );
+
+    const value =
+      Math.floor(
+        start + diff * progress
+      );
+
+    el.innerText =
+      value.toLocaleString();
+
+    if(progress < 1){
+      requestAnimationFrame(update);
+    }
+
+  }
+
+  requestAnimationFrame(update);
+
+}
+
+/* =========================
+   CHART
+========================= */
+
+function drawChart(data){
+
+  const canvas =
+    document.getElementById("chart");
+
+  const ctx =
+    canvas.getContext("2d");
+
+  canvas.width =
+    canvas.offsetWidth;
+
+  canvas.height = 350;
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  if(data.length < 2) return;
+
+  const values =
+    data.map(d => d.members || 0);
+
+  const max =
+    Math.max(...values);
+
+  const min =
+    Math.min(...values);
+
+  /* grid */
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,0.05)";
+
+  for(let i=0;i<5;i++){
+
+    const y =
+      (canvas.height / 5) * i;
+
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(canvas.width,y);
+    ctx.stroke();
+
+  }
+
+  /* line */
 
   ctx.beginPath();
-  ctx.strokeStyle = "#5865f2";
 
   data.forEach((d,i) => {
-    const x = (i/(data.length-1))*canvas.width;
-    const y = canvas.height -
-      ((d.members-min)/((max-min)||1))*canvas.height;
 
-    if(i===0) ctx.moveTo(x,y);
-    else ctx.lineTo(x,y);
+    const x =
+      (i/(data.length-1))
+      * canvas.width;
+
+    const normalized =
+      (d.members - min)
+      / ((max - min) || 1);
+
+    const y =
+      canvas.height
+      - normalized * canvas.height;
+
+    if(i === 0){
+      ctx.moveTo(x,y);
+    } else {
+      ctx.lineTo(x,y);
+    }
+
   });
 
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#5865f2";
+  ctx.shadowColor = "#5865f2";
+  ctx.shadowBlur = 15;
+
   ctx.stroke();
+
 }
 
-load();
+/* =========================
+   BOOT
+========================= */
+
+async function boot(){
+
+  await loadGuildInfo();
+
+  await loadSnapshots();
+
+  startRealtime();
+
+  updateLiveStatus();
+
+}
+
+boot();
 
 </script>
 
