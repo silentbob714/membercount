@@ -12,24 +12,24 @@ jobs:
     steps:
       - name: Fetch Discord Data & Store
         run: |
-    echo "Invite: $INVITE"
-    
-      curl -s "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" > data.json
-      
-      cat data.json
-      
-      MEMBERS=$(jq '.approximate_member_count' data.json)
-      ONLINE=$(jq '.approximate_presence_count' data.json)
+          echo "Invite: $INVITE"
+          
+          curl -s "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" > data.json
 
-      curl -X POST "${SUPABASE_URL}/rest/v1/discord_snapshots" \
-      -H "apikey: ${SUPABASE_KEY}" \
-      -H "Authorization: Bearer ${SUPABASE_KEY}" \
-      -H "Content-Type: application/json" \
-      -d "{
-        \"guild_id\": \"${GUILD_ID}\",
-        \"members\": $MEMBERS,
-        \"online\": $ONLINE
-      }"
+          cat data.json
+
+          MEMBERS=$(cat data.json | jq '.approximate_member_count')
+          ONLINE=$(cat data.json | jq '.approximate_presence_count')
+
+          curl -X POST "${SUPABASE_URL}/rest/v1/discord_snapshots" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"guild_id\": \"${GUILD_ID}\",
+              \"members\": $MEMBERS,
+              \"online\": $ONLINE
+            }"
 
     env:
       INVITE: ${{ secrets.INVITE }}
