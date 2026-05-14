@@ -2,7 +2,7 @@ name: Discord Snapshot Collector
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
+    - cron: "*/15 * * * *"   # every 15 mins
   workflow_dispatch:
 
 jobs:
@@ -10,23 +10,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Fetch Discord Data & Store
+      - name: Install jq
+        run: sudo apt-get install jq
+
+      - name: Fetch Discord Data
         run: |
-          echo "Invite: $INVITE"
-          
-          curl -s "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" > data.json
+
+          echo "Fetching Discord invite..."
+
+          curl -s \
+            "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" \
+            > data.json
 
           cat data.json
 
-          MEMBERS=$(cat data.json | jq '.approximate_member_count')
-          ONLINE=$(cat data.json | jq '.approximate_presence_count')
+          MEMBERS=$(jq '.approximate_member_count // 0' data.json)
+          ONLINE=$(jq '.approximate_presence_count // 0' data.json)
 
-          curl -X POST "${SUPABASE_URL}/rest/v1/discord_snapshots" \
+          GUILD_ID_API=$(jq -r '.guild.id' data.json)
+          GUILD_NAME=$(jq -r '.guild.name' data.json)
+          GUILD_ICON=$(jq -r '.guild.icon' data.json)
+
+          echo "Members: $MEMBERS"
+          echo "Online: $ONLINE"
+
+          echo "Updating guild info..."
+
+          curl -X POST \
+            "${SUPABASE_URL}/rest/v1/discord_guild" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d "{
+              \"id\": \"${GUILD_ID_API}\",
+              \"name\": \"${GUILD_NAME}\",
+              \"icon\": \"${GUILD_ICON}\"
+            }"
+
+          echo "Inserting snapshot..."
+
+          curl -X POST \
+            "${SUPABASE_URL}/rest/v1/discord_snapshots" \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"guild_id\": \"${GUILD_ID}\",
+              \"guild_id\": \"${GUILD_ID_API}\",
               \"members\": $MEMBERS,
               \"online\": $ONLINE
             }"
@@ -35,4 +65,3 @@ jobs:
       INVITE: ${{ secrets.INVITE }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      GUILD_ID: ${{ secrets.GUILD_ID }}
