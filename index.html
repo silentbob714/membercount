@@ -25,11 +25,18 @@ body{
 .hero{
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:16px;
   padding:18px;
   border-radius:14px;
   background:#141826;
   border:1px solid rgba(255,255,255,0.06);
+}
+
+.hero-left{
+  display:flex;
+  align-items:center;
+  gap:14px;
 }
 
 .hero img{
@@ -42,6 +49,29 @@ body{
 .hero h1{
   margin:0;
   font-size:24px;
+}
+
+.live{
+  font-size:12px;
+  opacity:0.7;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#3cff75;
+  box-shadow:0 0 10px #3cff75;
+  animation:pulse 1.5s infinite;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1);opacity:1;}
+  50%{transform:scale(1.4);opacity:0.5;}
+  100%{transform:scale(1);opacity:1;}
 }
 
 /* GRID */
@@ -57,6 +87,8 @@ body{
   padding:16px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,0.05);
+  position:relative;
+  overflow:hidden;
 }
 
 .card-title{
@@ -70,6 +102,23 @@ body{
   font-weight:700;
 }
 
+.delta{
+  font-size:12px;
+  opacity:0.7;
+  margin-top:6px;
+}
+
+/* FLASH ON UPDATE */
+.flash{
+  animation:flash 0.6s ease;
+}
+
+@keyframes flash{
+  0%{box-shadow:0 0 0 rgba(88,101,242,0);}
+  50%{box-shadow:0 0 25px rgba(88,101,242,0.6);}
+  100%{box-shadow:0 0 0 rgba(88,101,242,0);}
+}
+
 /* CHART */
 .chart{
   margin-top:20px;
@@ -77,11 +126,12 @@ body{
   border-radius:12px;
   padding:12px;
   border:1px solid rgba(255,255,255,0.05);
+  position:relative;
 }
 
 canvas{
   width:100%;
-  height:300px;
+  height:320px;
   display:block;
 }
 
@@ -93,26 +143,40 @@ canvas{
 <div class="container">
 
   <div class="hero">
-    <img id="serverIcon" />
-    <div>
-      <h1 id="serverName">Loading...</h1>
+    <div class="hero-left">
+      <img id="serverIcon" />
+      <div>
+        <h1 id="serverName">Loading...</h1>
+      </div>
+    </div>
+
+    <div class="live">
+      <div class="dot"></div>
+      LIVE FEED
     </div>
   </div>
 
   <div class="grid">
-    <div class="card">
+    <div class="card" id="card-members">
       <div class="card-title">Members</div>
       <div class="card-value" id="members">-</div>
+      <div class="delta" id="members_delta"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-online">
       <div class="card-title">Online</div>
       <div class="card-value" id="online">-</div>
+      <div class="delta" id="online_delta"></div>
     </div>
 
     <div class="card">
       <div class="card-title">Peak</div>
       <div class="card-value" id="peak">-</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Velocity</div>
+      <div class="card-value" id="velocity">-</div>
     </div>
   </div>
 
@@ -122,83 +186,57 @@ canvas{
 
 </div>
 
-<!-- =========================
-     SUPABASE
-========================= -->
+<!-- SUPABASE -->
 <script type="module">
 
 import { createClient } from "https://cdn.skypack.dev/@supabase/supabase-js@2";
 
-/* CONFIG */
 const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
 
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* STATE */
 let cache = [];
-let current = null;
-let previous = null;
 
-/* BOOT (STEP 5: faster “live feel”) */
 window.addEventListener("DOMContentLoaded", async () => {
   await loadGuild();
   await loadSnapshots();
   setInterval(loadSnapshots, 8000);
 });
 
-/* =========================
-   GUILD INFO
-========================= */
+/* GUILD */
 async function loadGuild(){
-
-  const { data } = await sb
-    .from("discord_guild")
-    .select("*")
-    .limit(1);
-
+  const { data } = await sb.from("discord_guild").select("*").limit(1);
   if(!data?.length) return;
 
   const g = data[0];
+  document.getElementById("serverName").innerText = g.name;
 
-  document.getElementById("serverName").innerText =
-    g.name || "Unknown Server";
-
-  if(g.icon && g.id){
+  if(g.icon){
     document.getElementById("serverIcon").src =
       `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128`;
   }
 }
 
-/* =========================
-   SNAPSHOTS
-========================= */
+/* SNAPSHOTS */
 async function loadSnapshots(){
 
-  const { data, error } = await sb
+  const { data } = await sb
     .from("discord_snapshots")
     .select("*")
     .order("created_at", { ascending:true });
 
-  if(error || !data?.length) return;
+  if(!data?.length) return;
 
   cache = data;
 
-  current = data[data.length - 1];
-  previous = data[data.length - 2] || current;
+  const current = data.at(-1);
+  const previous = data.at(-2) || current;
 
   render(current, previous, cache);
 }
 
-/* =========================
-   STEP 3: RENDER ENGINE
-========================= */
+/* RENDER ENGINE */
 function render(current, previous, all){
 
   const membersNow = current.members || 0;
@@ -210,22 +248,25 @@ function render(current, previous, all){
   const memberDelta = membersNow - membersPrev;
   const onlineDelta = onlineNow - onlinePrev;
 
+  const peak = Math.max(...all.map(d => d.members || 0));
+
+  const velocity = memberDelta; // per interval estimate
+
   animate("members", membersNow);
   animate("online", onlineNow);
-
-  const peak = Math.max(...all.map(d => d.members || 0));
   animate("peak", peak);
+  animate("velocity", velocity);
 
-  draw(all);
-
-  // STEP 4: delta display
   showDelta("members", memberDelta);
   showDelta("online", onlineDelta);
+
+  pulse("card-members");
+  pulse("card-online");
+
+  draw(all);
 }
 
-/* =========================
-   ANIMATION
-========================= */
+/* ANIMATE */
 function animate(id, target){
 
   const el = document.getElementById(id);
@@ -235,7 +276,7 @@ function animate(id, target){
   const t0 = performance.now();
 
   function step(t){
-    const p = Math.min((t - t0) / 400, 1);
+    const p = Math.min((t - t0) / 500, 1);
     el.innerText = Math.floor(start + diff * p).toLocaleString();
     if(p < 1) requestAnimationFrame(step);
   }
@@ -243,26 +284,16 @@ function animate(id, target){
   requestAnimationFrame(step);
 }
 
-/* =========================
-   STEP 4: DELTA UI
-========================= */
+/* DELTA */
 function showDelta(id, delta){
 
-  let el = document.getElementById(id + "_delta");
-
-  if(!el){
-    el = document.createElement("div");
-    el.id = id + "_delta";
-    el.style.fontSize = "12px";
-    el.style.opacity = "0.7";
-    document.getElementById(id).parentNode.appendChild(el);
-  }
+  const el = document.getElementById(id + "_delta");
 
   if(delta > 0){
-    el.innerText = `+${delta} since last update`;
+    el.innerText = `▲ +${delta}`;
     el.style.color = "#3cff75";
   } else if(delta < 0){
-    el.innerText = `${delta} since last update`;
+    el.innerText = `▼ ${delta}`;
     el.style.color = "#ff5c5c";
   } else {
     el.innerText = "no change";
@@ -270,32 +301,53 @@ function showDelta(id, delta){
   }
 }
 
-/* =========================
-   CHART
-========================= */
+/* FLASH EFFECT */
+function pulse(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+
+/* CHART + AXIS GRID */
 function draw(data){
 
   const canvas = document.getElementById("chart");
   const ctx = canvas.getContext("2d");
 
   canvas.width = canvas.offsetWidth;
-  canvas.height = 300;
+  canvas.height = 320;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if(data.length < 2) return;
-
   const values = data.map(d => d.members || 0);
-
   const max = Math.max(...values);
   const min = Math.min(...values);
 
+  /* GRID (Y AXIS LINES) */
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+
+  for(let i=0;i<5;i++){
+    const y = (canvas.height/5)*i;
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(canvas.width,y);
+    ctx.stroke();
+  }
+
+  /* LINE */
   ctx.beginPath();
 
   data.forEach((d,i)=>{
 
     const x = (i/(data.length-1))*canvas.width;
-    const y = canvas.height - ((d.members-min)/((max-min)||1))*canvas.height;
+
+    const y =
+      canvas.height -
+      ((d.members-min)/((max-min)||1))*canvas.height;
 
     if(i===0) ctx.moveTo(x,y);
     else ctx.lineTo(x,y);
@@ -303,6 +355,8 @@ function draw(data){
 
   ctx.strokeStyle = "#5865f2";
   ctx.lineWidth = 2;
+  ctx.shadowColor = "#5865f2";
+  ctx.shadowBlur = 12;
   ctx.stroke();
 }
 
