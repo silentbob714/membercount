@@ -6,9 +6,6 @@
 
 <title>Discord Analytics Dashboard</title>
 
-<!-- ✅ SKYPACK (cleanest for Edge tracking prevention issues) -->
-<script src="https://cdn.skypack.dev/@supabase/supabase-js@2"></script>
-
 <style>
 
 body{
@@ -125,22 +122,19 @@ canvas{
 
 </div>
 
-<script>
+<!-- =========================
+     SUPABASE (SKYPACK MODULE)
+========================= -->
+<script type="module">
 
-(() => {
+import { createClient } from "https://cdn.skypack.dev/@supabase/supabase-js@2";
 
-/* =========================
-   CONFIG
-========================= */
-
+/* CONFIG */
 const SUPABASE_URL = "https://xyskshqnljcazroqtlnr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vVuIoCNeJAFwWOpEiqaqIQ_ApPGsIES";
 
-/* =========================
-   SAFE INIT (NO GLOBAL COLLISIONS)
-========================= */
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+/* CLIENT */
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
@@ -148,16 +142,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
-/* =========================
-   STATE
-========================= */
-
+/* STATE */
 let cache = [];
 
-/* =========================
-   BOOT
-========================= */
-
+/* BOOT */
 window.addEventListener("DOMContentLoaded", async () => {
   await loadGuild();
   await loadSnapshots();
@@ -167,7 +155,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 /* =========================
    GUILD INFO
 ========================= */
-
 async function loadGuild(){
 
   const { data, error } = await sb
@@ -196,7 +183,6 @@ async function loadGuild(){
 /* =========================
    SNAPSHOTS
 ========================= */
-
 async function loadSnapshots(){
 
   const { data, error } = await sb
@@ -227,16 +213,15 @@ async function loadSnapshots(){
 }
 
 /* =========================
-   UI UPDATES
+   UI
 ========================= */
-
 function setValues(m,o,p){
   animate("members", m);
   animate("online", o);
   animate("peak", p);
 }
 
-/* ANIMATION */
+/* NUMBER ANIMATION */
 function animate(id, target){
 
   const el = document.getElementById(id);
@@ -257,7 +242,6 @@ function animate(id, target){
 /* =========================
    CHART
 ========================= */
-
 function draw(data){
 
   const canvas = document.getElementById("chart");
@@ -290,8 +274,6 @@ function draw(data){
   ctx.lineWidth = 2;
   ctx.stroke();
 }
-
-})(); // isolate scope (prevents redeclare bugs)
 
 </script>
 
