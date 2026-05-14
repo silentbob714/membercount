@@ -1,4 +1,5 @@
 name: Discord Snapshot Collector
+# force schedule re-index
 
 on:
   schedule:
