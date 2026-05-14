@@ -18,27 +18,30 @@ jobs:
 
           echo "Fetching Discord invite..."
 
-          # Clean invite (removes spaces/newlines)
+          # Clean invite (removes whitespace/newlines)
           INVITE=$(echo "${INVITE}" | tr -d ' \n')
 
-          echo "Invite code: [$INVITE]"
+          echo "Invite: [$INVITE]"
 
           curl -s \
             "https://discord.com/api/v10/invites/${INVITE}?with_counts=true" \
             > data.json
 
-          echo "Raw Discord response:"
+          echo "Raw API response:"
           cat data.json
 
-          # Validate JSON (prevents silent failures)
+          # Validate JSON
           if ! jq . data.json >/dev/null 2>&1; then
-            echo "❌ Invalid JSON response from Discord API"
+            echo "❌ Invalid JSON from Discord API"
             exit 1
           fi
 
-          # Safe extraction with fallbacks
-          MEMBERS=$(jq '.approximate_member_count // 0' data.json)
-          ONLINE=$(jq '.approximate_presence_count // 0' data.json)
+          # =========================
+          # CORRECTED FIELD MAPPING
+          # =========================
+
+          MEMBERS=$(jq '.profile.member_count // .approximate_member_count // 0' data.json)
+          ONLINE=$(jq '.profile.online_count // .approximate_presence_count // 0' data.json)
 
           GUILD_ID_API=$(jq -r '.guild.id // empty' data.json)
           GUILD_NAME=$(jq -r '.guild.name // "Unknown Server"' data.json)
@@ -49,9 +52,9 @@ jobs:
           echo "Guild ID: $GUILD_ID_API"
           echo "Guild Name: $GUILD_NAME"
 
-          # -------------------------
-          # UPDATE GUILD TABLE
-          # -------------------------
+          # =========================
+          # GUILD INSERT (SAFE)
+          # =========================
 
           if [ -n "$GUILD_ID_API" ]; then
 
@@ -70,12 +73,12 @@ jobs:
               }"
 
           else
-            echo "⚠️ Guild ID missing — skipping guild insert"
+            echo "⚠️ Missing guild data — skipping guild insert"
           fi
 
-          # -------------------------
-          # INSERT SNAPSHOT
-          # -------------------------
+          # =========================
+          # SNAPSHOT INSERT
+          # =========================
 
           echo "Inserting snapshot..."
 
